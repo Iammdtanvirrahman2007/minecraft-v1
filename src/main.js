@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'https://unpkg.com/three@0.181.1/build/three.module.js';
 import { SphericalWorld } from './world/SphericalWorld.js';
 import { PlayerPhysics } from './player/PlayerPhysics.js';
 
@@ -103,7 +103,7 @@ window.addEventListener('keyup', e => keys.delete(e.code));
 function updateLocalCamera() {
   const frame = world.getLocalFrame(player.position);
   const speed = 9;
-  let move = new THREE.Vector3();
+  const move = new THREE.Vector3();
   if (keys.has('KeyW')) move.z -= speed;
   if (keys.has('KeyS')) move.z += speed;
   if (keys.has('KeyA')) move.x -= speed;
@@ -112,25 +112,28 @@ function updateLocalCamera() {
 
   const right = new THREE.Vector3(frame.east.x, frame.east.y, frame.east.z);
   const forward = new THREE.Vector3(frame.north.x, frame.north.y, frame.north.z);
-  const up = new THREE.Vector3(frame.up.x, frame.up.y, frame.up.z);
   const delta = right.multiplyScalar(move.x * 0.008).add(forward.multiplyScalar(-move.z * 0.008));
-  player.position.add(new (awaitedVec3)(delta.x, delta.y, delta.z));
+  player.position.x += delta.x;
+  player.position.y += delta.y;
+  player.position.z += delta.z;
 
-  player.position = player.position.normalize().mul(world.radius + 4);
+  const length = Math.hypot(player.position.x, player.position.y, player.position.z);
+  if (length > 1e-6) {
+    const target = world.radius + 4;
+    const scale = target / length;
+    player.position.x *= scale;
+    player.position.y *= scale;
+    player.position.z *= scale;
+  }
+
   playerMesh.position.set(0, 4, 0);
   status.textContent = `Seed: ${world.seed} • Radius: ${player.position.length().toFixed(1)} • Core crossed: ${player.crossedCore ? 'YES' : 'NO'}`;
-}
-
-// Tiny adapter keeps the prototype independent of Three.js vector math in the world layer.
-class awaitedVec3 {
-  constructor(x, y, z) { this.x = x; this.y = y; this.z = z; }
 }
 
 let last = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
-  // The real spherical physics module is updated here; prototype movement is kept on the surface.
   player.velocity = player.velocity.mul(0.92);
   player.update(Math.min(dt, 0.02));
   updateLocalCamera();

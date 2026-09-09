@@ -1,6 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.181.1/build/three.module.js';
 import { SphericalWorld } from './world/SphericalWorld.js';
 import { PlayerPhysics } from './player/PlayerPhysics.js';
+import { GlobeMap3D } from './ui/GlobeMap3D.js';
 
 const world = new SphericalWorld({ radius: 64, seed: Math.floor(Math.random() * 0xffffffff) });
 const player = new PlayerPhysics(world);
@@ -25,8 +26,8 @@ const blockGeo = new THREE.BoxGeometry(1, 1, 1);
 const grassMat = new THREE.MeshLambertMaterial({ color: 0x5ca34a });
 const dirtMat = new THREE.MeshLambertMaterial({ color: 0x8a5a35 });
 const stoneMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
-
 const blocks = [];
+
 function rebuildLocalTerrain() {
   for (const m of blocks) localTerrain.remove(m);
   blocks.length = 0;
@@ -57,7 +58,7 @@ const hud = document.createElement('div');
 hud.innerHTML = `
   <div style="font-size:20px;font-weight:700">🌍 Spherical Earth Prototype</div>
   <div id="status">Seed: ${world.seed}</div>
-  <button id="globe">🌍 Globe Map</button>
+  <button id="globe" style="margin-top:8px">🌍 3D Globe Map</button>
   <div style="opacity:.8;margin-top:8px">WASD = move • Space = rise • G = Globe</div>
 `;
 Object.assign(hud.style, {
@@ -69,32 +70,11 @@ Object.assign(hud.style, {
 document.body.appendChild(hud);
 
 const status = hud.querySelector('#status');
-let globeOpen = false;
-const globeCanvas = document.createElement('canvas');
-globeCanvas.width = globeCanvas.height = 280;
-Object.assign(globeCanvas.style, { position: 'fixed', right: '20px', top: '20px', width: '280px', height: '280px', display: 'none', borderRadius: '50%', zIndex: 4, boxShadow: '0 8px 40px rgba(0,0,0,.35)' });
-document.body.appendChild(globeCanvas);
-const gctx = globeCanvas.getContext('2d');
-
-function drawGlobe() {
-  gctx.clearRect(0, 0, 280, 280);
-  gctx.fillStyle = '#101925'; gctx.fillRect(0, 0, 280, 280);
-  gctx.beginPath(); gctx.arc(140, 140, 105, 0, Math.PI * 2); gctx.fillStyle = '#3078c5'; gctx.fill();
-  gctx.beginPath(); gctx.arc(140, 140, 105, 0, Math.PI * 2); gctx.strokeStyle = 'white'; gctx.stroke();
-  const p = player.position.normalize();
-  const px = 140 + p.z * 90;
-  const py = 140 - p.y * 90;
-  gctx.beginPath(); gctx.arc(px, py, 5, 0, Math.PI * 2); gctx.fillStyle = '#ff4d4d'; gctx.fill();
-  gctx.fillStyle = 'white'; gctx.font = '14px system-ui'; gctx.fillText('PLAYER', px + 8, py + 5);
-}
-
-function toggleGlobe() {
-  globeOpen = !globeOpen;
-  globeCanvas.style.display = globeOpen ? 'block' : 'none';
-  if (globeOpen) drawGlobe();
-}
-hud.querySelector('#globe').onclick = toggleGlobe;
-window.addEventListener('keydown', e => { if (e.code === 'KeyG') toggleGlobe(); });
+const globeMap = new GlobeMap3D(world, player);
+hud.querySelector('#globe').onclick = () => globeMap.toggle();
+window.addEventListener('keydown', e => {
+  if (e.code === 'KeyG') globeMap.toggle();
+});
 
 const keys = new Set();
 window.addEventListener('keydown', e => keys.add(e.code));
@@ -137,7 +117,7 @@ function animate(now) {
   player.velocity = player.velocity.mul(0.92);
   player.update(Math.min(dt, 0.02));
   updateLocalCamera();
-  if (globeOpen) drawGlobe();
+  globeMap.render(dt);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(animate);
